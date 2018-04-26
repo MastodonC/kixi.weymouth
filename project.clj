@@ -3,8 +3,8 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :repositories {"Boundless-Geo" "http://repo.boundlessgeo.com/main/"
-                 "OSGeo" "http://download.osgeo.org/webdav/geotools/"}
+  :repositories {"Boundless-Geo" "https://repo.boundlessgeo.com/main/"
+                 "OSGeo" "https://download.osgeo.org/webdav/geotools/"}
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [environ "1.1.0"]
                  [org.clojure/core.async "0.4.474"]

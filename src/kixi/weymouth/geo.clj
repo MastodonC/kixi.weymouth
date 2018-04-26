@@ -52,9 +52,7 @@
       io/file
       shapefile-datastore
       .getFeatureSource
-      .getFeatures
-      ;;.features
-      ))
+      .getFeatures))
 
 (defn geo-filter-factory []
   (CommonFactoryFinder/getFilterFactory2))
@@ -93,12 +91,64 @@
 (defn feature-coll->seq [fc]
   (iteration-seq (.features fc)))
 
+(defn feature-by-toid [toid topo-features]
+  (-> (cql-filter (str "Toid = " toid) topo-features)
+      feature-coll->seq
+      first))
 
+(defn addressbase-within-topo? [topo-hashmap xref-lookup ab-feature]
+  (let [uprn (.getAttribute ab-feature "Uprn")
+        toid (get xref-lookup uprn)
+        ab-point (.getDefaultGeometry ab-feature)
+        topo-poly (get topo-hashmap toid)]
+    (when topo-poly
+      (.within ab-point topo-poly))))
 
+(defn toid-map [topography-path]
+  (reduce
+   (fn [a x]
+     (assoc a (.getAttribute x "Toid") (.getDefaultGeometry x)))
+   {}
+   (-> topography-path features-coll feature-coll->seq)))
 
+(defn xref-map [xref-path]
+  (transduce uprn-toid-xref-xf
+             (fn
+               ([acc x]
+                (assoc acc (:uprn x) (:toid x)))
+               ([a] a))
+             {}
+             (dbf-to-vec xref-path)))
 
+(defn uprn-report-counter [toids xref a x]
+  (-> a
+      (assoc :count (inc (get a :count 0)))
+      ((fn [a] (if-not (addressbase-within-topo? toids xref x)
+                 (assoc a
+                        :not-in-topo (inc (get a :not-in-topo 0))
+                        :uprns-not-in-topo (conj (get a :uprns-not-in-topo []) (.getAttribute x "Uprn")))
+                 a)))))
+
+(defn uprns-not-in-topography [topography-path xref-path addressbase-path]
+  (let [toids (toid-map topography-path)
+        xref (xref-map xref-path)
+        ab-seq (-> addressbase-path features-coll feature-coll->seq)]
+    (reduce
+     (partial uprn-report-counter toids xref)
+     {}
+     ab-seq)))
 
 (comment
+
+  (def bury-report (uprns-not-in-topography
+                    "data/bury_topography_esri/Topography.shp"
+                    "data/bury_building_esri/Bury_ADPRAXR.dbf"
+                    "data/bury_building_esri/AddressPoint.shp"))
+
+  (def bcbc-report (uprns-not-in-topography
+                    "data/bcbc_topography_esri/Topography.shp"
+                    "data/bcbc_building_esri/BCBCADPRAXR.dbf"
+                    "data/bcbc_building_esri/AddressPoint.shp"))
 
   ;; Addresspoint
   (def abfilepath "data/bury_building_esri/AddressPoint.shp")
@@ -108,17 +158,18 @@
   ;; Cross ref file
   (def crf (dbf-to-vec "data/bury_building_esri/Bury_ADPRAXR.dbf"))
   (def cr (into [] uprn-toid-xref-xf crf))
+  (def crlookup (reduce (fn [acc x]
+                          (assoc acc (:uprn x) (:toid x))) {} cr))
 
   ;; Topography (shp)
   (def topog "data/bury_topography_esri/Topography.shp")
   (def top (features-coll topog))
   (def top-seq (feature-coll->seq top))
+  (def toid-poly-map (reduce (fn [a x]
+                               (assoc a (.getAttribute x "Toid") (.getDefaultGeometry x)))
+                             {}
+                             top-seq))
 
-  ;; create uprn/toid lookup
-  (def crlookup (reduce (fn [acc x]
-                          (assoc acc (:uprn x) (:toid x))) {} cr))
-
-  (def ab-seq (feature-coll->seq ab))
 
   (.getAttribute (first ab-seq) "Uprn")
 
@@ -136,5 +187,6 @@
   (.within topogeom abgeom)
 
 
+  (addressbase-within-topo? toid-poly-map crlookup (first ab-seq))
 
   )

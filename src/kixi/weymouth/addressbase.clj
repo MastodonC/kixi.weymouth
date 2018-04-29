@@ -25,27 +25,40 @@
   (-> m
       :classifica
       first
-      str))
-
-(defn class-frequencies
-  [counts x]
-  (-> counts
-      (assoc x (inc (get counts x 0)))
-      (assoc :total (inc (get counts :total 0)))))
-
-(defn class-percentage [total [k v]]
-  [k (double (/ v total))])
+      str
+      clojure.string/trim))
 
 (defn good-classification? [classifications m]
   ((set classifications) (classification-code m)))
 
+(defn class-frequencies
+  [classifications counts x]
+  (let [raw-code (classification-code x)
+        classification (cond
+                         ((set classifications) raw-code) raw-code
+                         (= "" raw-code) "Null/Empty"
+                         :default "Anything else, e.g. '09'")]
+    (-> counts
+        (assoc classification (inc (get counts classification 0)))
+        (assoc :total (inc (get counts :total 0))))))
+
+(defn class-percentage [total [k v]]
+  [k (double (/ v total))])
+
 (defn classification-percentage-report
-  [address-base-seq]
+  [classifications address-base-seq]
   (let [result-map (->> address-base-seq
-                        (map classification-code)
-                        (reduce class-frequencies {}))
+                        ;;(map classification-code)
+                        (reduce (partial class-frequencies classifications) {}))
         total (:total result-map)]
-    (map (partial class-percentage total) (dissoc result-map :total))))
+    (into {} (map (partial class-percentage total) (dissoc result-map :total)))))
+
+(defn fix-missing-classification [x]
+  (if (= "" (get x :classifica))
+    (assoc x :classifica "Missing classification code")
+    x))
 
 (defn no-classification-report [classifications address-base-seq]
-  (remove (partial good-classification? classifications) address-base-seq))
+  (->> address-base-seq
+       (remove (partial good-classification? classifications))
+       (map fix-missing-classification)))

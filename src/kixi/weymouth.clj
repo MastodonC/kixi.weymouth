@@ -7,44 +7,56 @@
             [clojure.core.async :as a]
             [clojure.java.io :as io]))
 
-(defn classification-percentage-report->csv [out xs]
-  (csv/write-csv out [["Classification"
-                       "Percentage"]])
-  (csv/write-csv out xs))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker 1
+(defn classification-percentage-report->csv [out xs]
+  (let [classifications [["C" "Commercial"]
+                         ["L" "Land"]
+                         ["M" "Military"]
+                         ["O" "Other (Ordnance Survey Only)"]
+                         ["P" "Parent Shell"]
+                         ["R" "Residential"]
+                         ["U" "Unclassified"]
+                         ["X" "Dual Use"]
+                         ["Z" "Object of Interest"]
+                         ["Anything else, e.g. '09'" "Misclassified"]
+                         ["Null/empty" "No classification"]]]
+    (csv/write-csv out [["Concatenated"
+                         "Class_Desc"
+                         "Percentage"]])
+    (csv/write-csv out (map (fn [[c desc]]
+                              [c desc (* 100 (get xs c 0))])
+                            classifications))))
+
 (defn no-classification-row [m]
-  ((juxt :uprn :startdate :enddate :lastupdate :entrydate :classkey :classifica :classschem :schemevers) m))
+  ((juxt :uprn :classifica) m))
 
 (defn no-classification-report->csv [out xs]
-  (csv/write-csv out [["UPRN"
-                       "Start Date"
-                       "End Date"
-                       "Last Update"
-                       "Entry Date"
-                       "Class Key"
-                       "Classification"
-                       "Class Scheme"
-                       "Scheme Version"]])
-  (csv/write-csv out (map no-classification-row xs)))
+  (if (seq xs)
+    (do
+      (csv/write-csv out [["UPRN"
+                           "Incorrect or Missing Classification Code"]])
+      (csv/write-csv out (->> (map no-classification-row xs)
+                              (map (fn [[u c]] (if (= "Missing classification code" c)
+                                                 [u (str "~" c)]
+                                                 [u c])))
+                              (sort-by second)
+                              (map (fn [[u c]] (if (= "~Missing classification code" c)
+                                                 [u "Missing classification code"]
+                                                 [u c]))))))
+    (csv/write-csv out ["The data had no incorrect or missing classification codes."])))
 
 
 (defn checker1-reports [classification-id adprc-id prefix]
   (let [classifications (classification/classification-codes classification-id)
         adprc (addressbase/load-data adprc-id)
-        classification-pc-report (addressbase/classification-percentage-report adprc)
+        classification-pc-report (addressbase/classification-percentage-report classifications adprc)
         no-classification-report (addressbase/no-classification-report classifications adprc)]
     ;; checker 1
-    (with-open [writer (clojure.java.io/writer (str prefix "no-classification-report.csv"))]
+    (with-open [writer (clojure.java.io/writer (str prefix "Incorrect-or-Missing-Classification-Report.csv"))]
       (no-classification-report->csv writer no-classification-report))
     (with-open [writer (clojure.java.io/writer (str prefix "classification-percentage-report.csv"))]
-      (classification-percentage-report->csv writer classification-pc-report))
-    ;; checker 2
-    (with-open [writer (clojure.java.io/writer (str prefix "urpn-not-in-toid-percentage-report.csv"))]
-      (uprn-not-in-toid-%->csv writer classification-pc-report))
-    (with-open [writer (clojure.java.io/writer (str prefix "urpn-not-in-toid-percentage-report.csv"))]
-      (uprns-not-in-toid->csv writer classification-pc-report))))
+      (classification-percentage-report->csv writer classification-pc-report))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

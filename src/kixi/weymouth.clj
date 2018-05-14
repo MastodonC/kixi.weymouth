@@ -43,8 +43,9 @@
                               (sort-by second)
                               (map (fn [[u c]] (if (= "~Missing classification code" c)
                                                  [u "Missing classification code"]
-                                                 [u c]))))))
-    (csv/write-csv out ["The data had no incorrect or missing classification codes."])))
+                                                 [u c]))))
+                     :quote? (constantly true)))
+    (csv/write-csv out [["The data had no incorrect or missing classification codes."]])))
 
 
 (defn checker1-reports [classification-id adprc-id prefix]

@@ -26,9 +26,6 @@
 (defn dbase-loader [filepath]
   (DbaseFileReader. (dbf-file-channel filepath) false (Charset/forName "ISO-8859-1")) )
 
-(defn dbase-field-names [db]
-  )
-
 
 (defn extract-toid [refstring]
   (st/replace refstring #"osgb" ""))

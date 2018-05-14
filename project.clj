@@ -12,6 +12,7 @@
                  [org.clojure/data.json "0.2.6"]
                  [org.clojure/spec.alpha "0.1.143"]
                  [org.clojure/test.check "0.10.0-alpha2"]
+                 [dk.ative/docjure "1.12.0"]
                  [clj-http "3.8.0"]
                  [slingshot "0.12.2"]
                  [com.taoensso/timbre "4.10.0"]

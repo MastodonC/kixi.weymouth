@@ -33,16 +33,19 @@
   ((juxt :uprn :classifica) m))
 
 (defn no-classification-report [xs]
-  (into [["UPRN"
-          "Incorrect or Missing Classification Code"]]
-        (->> (map no-classification-row xs)
-             (map (fn [[u c]] (if (= "Missing classification code" c)
-                                [u (str "~" c)]
-                                [u c])))
-             (sort-by second)
-             (map (fn [[u c]] (if (= "~Missing classification code" c)
-                                [u "Missing classification code"]
-                                [u c]))))))
+  (if-let [data (seq
+                 (->> (map no-classification-row xs)
+                      (map (fn [[u c]] (if (= "Missing classification code" c)
+                                         [u (str "~" c)]
+                                         [u c])))
+                      (sort-by second)
+                      (map (fn [[u c]] (if (= "~Missing classification code" c)
+                                         [u "Missing classification code"]
+                                         [u c])))))]
+    (into [["UPRN"
+            "Incorrect or Missing Classification Code"]]
+          data)
+    [["The data had no incorrect or missing classification codes."]]))
 
 (defn checker-1-xls [out-file-name ncr cpr]
   (let [wb (excel/create-workbook
